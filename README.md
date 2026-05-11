@@ -1,5 +1,20 @@
 # WSO2 ESB Monitoring Template for Zabbix
 
+## Why
+
+There was no consistent way to monitor every service deployed on a WSO2 ESB
+instance under a single standard — each metric had to be checked by hand through
+the management console, and no Zabbix-native integration was available. This
+template collects operational data through the SOAP Admin services
+(`ServiceAdmin` for the service catalogue, `StatisticsAdmin` for counters and
+response times) so all of it lives in one place.
+
+Paired with Grafana for dashboards, the template is used day-to-day to spot
+services going down, traffic spikes or unexpected drops, and periods of heavier
+processing load.
+
+## Overview
+
 A Zabbix 6.2 template that monitors a WSO2 Enterprise Service Bus instance through
 its SOAP Admin API. It auto-discovers deployed services and collects per-service
 and system-wide request, response and fault counters, plus per-poll deltas.
@@ -68,6 +83,44 @@ Discovery (`WSO2 ESB Service Discovery`) creates the following per-service items
 Triggers cover platform unreachability, high error rate (system and per service),
 response-time spikes, sustained response-time degradation, fault count changes,
 inactive services, and missing data from the ESB.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Z[Zabbix Server / Proxy]
+    subgraph WSO2[WSO2 ESB on port 9443]
+        SA[ServiceAdmin SOAP]
+        ST[StatisticsAdmin SOAP]
+    end
+    G[Grafana]
+
+    Z -->|listServices| SA
+    Z -->|getSystemStatistics| ST
+    Z -->|getServiceStatistics per service| ST
+    SA -->|service list| Z
+    ST -->|counters and timings| Z
+    Z -.->|read API| G
+```
+
+The Zabbix server polls two SOAP endpoints on the WSO2 management port:
+
+- **`ServiceAdmin`** returns the catalogue of deployed services and feeds Zabbix
+  low-level discovery. New services are picked up on the next discovery cycle.
+- **`StatisticsAdmin`** returns system-wide and per-service counters, used to
+  build per-poll deltas and the aggregate error rate.
+
+Grafana is optional and reads from Zabbix through the standard Zabbix API.
+
+## Compatibility
+
+Tested with:
+
+- Zabbix server **6.2.9**
+- WSO2 ESB (Carbon-based, with SOAP Admin services enabled)
+
+The template should work on any Zabbix 6.x release that supports script items
+and HTTP agent items with `SECRET_TEXT` macros.
 
 ## License
 
