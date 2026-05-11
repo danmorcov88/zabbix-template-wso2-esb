@@ -1,0 +1,1457 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<zabbix_export>
+    <version>6.2</version>
+    <date>2026-05-11T10:32:26Z</date>
+    <template_groups>
+        <template_group>
+            <uuid>8555c66dc69d4961adda9c9fd18c1bcd</uuid>
+            <name>Templates/Applications</name>
+        </template_group>
+    </template_groups>
+    <templates>
+        <template>
+            <uuid>e6b44519bc0844e2a226d9006c19bf71</uuid>
+            <template>WSO2 ESB Service Monitoring</template>
+            <name>WSO2 ESB Service Monitoring</name>
+            <description>Monitors a WSO2 ESB instance through its SOAP Admin API. Discovers deployed services via ServiceAdmin and collects per-service and system-wide request, response and fault counters from StatisticsAdmin.</description>
+            <groups>
+                <group>
+                    <name>Templates/Applications</name>
+                </group>
+            </groups>
+            <items>
+                <item>
+                    <uuid>e160a5fe951c40108c79c298fc18f7ac</uuid>
+                    <name>WSO2 ESB: Port 9443 availability</name>
+                    <type>HTTP_AGENT</type>
+                    <key>wso2.esb.port.check</key>
+                    <history>7d</history>
+                    <description>Checks whether the WSO2 management console port (9443) accepts connections.
+Issues an HTTP GET to https://{$WSO2.HOST}:9443/ and accepts any HTTP status (200-599).
+Returns:
+- 1 = port is reachable (HTTP header received)
+- 0 = port is unreachable (connection refused, timeout)
+
+Check interval: 1 minute
+Timeout: 10 seconds</description>
+                    <preprocessing>
+                        <step>
+                            <type>REGEX</type>
+                            <parameters>
+                                <parameter>HTTP.*</parameter>
+                                <parameter>1</parameter>
+                            </parameters>
+                            <error_handler>CUSTOM_VALUE</error_handler>
+                            <error_handler_params>0</error_handler_params>
+                        </step>
+                        <step>
+                            <type>DISCARD_UNCHANGED_HEARTBEAT</type>
+                            <parameters>
+                                <parameter>1h</parameter>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <timeout>10s</timeout>
+                    <url>https://{$WSO2.HOST}:9443/</url>
+                    <status_codes>200-599</status_codes>
+                    <retrieve_mode>HEADERS</retrieve_mode>
+                    <tags>
+                        <tag>
+                            <tag>component</tag>
+                            <value>wso2-esb</value>
+                        </tag>
+                        <tag>
+                            <tag>type</tag>
+                            <value>availability</value>
+                        </tag>
+                    </tags>
+                    <triggers>
+                        <trigger>
+                            <uuid>226670d5f5e3494d820be40dfad66ae6</uuid>
+                            <expression>last(/WSO2 ESB Service Monitoring/wso2.esb.port.check)=0</expression>
+                            <recovery_mode>RECOVERY_EXPRESSION</recovery_mode>
+                            <recovery_expression>last(/WSO2 ESB Service Monitoring/wso2.esb.port.check)=1</recovery_expression>
+                            <name>WSO2 platform is not accessible</name>
+                            <priority>DISASTER</priority>
+                            <description>Port 9443 on {$WSO2.HOST} is not responding. All WSO2 ESB services are likely unreachable.
+
+Status: {ITEM.LASTVALUE}
+Host: {HOST.NAME}
+URL: https://{$WSO2.HOST}:9443/
+
+Suggested checks:
+1. Verify the WSO2 server process is running
+2. Verify firewall and network rules
+3. Inspect wso2carbon.log for startup or runtime errors
+4. Test manually: curl -k https://{$WSO2.HOST}:9443/
+
+The trigger recovers automatically once port 9443 becomes reachable again.</description>
+                            <tags>
+                                <tag>
+                                    <tag>component</tag>
+                                    <value>wso2-esb</value>
+                                </tag>
+                                <tag>
+                                    <tag>severity</tag>
+                                    <value>disaster</value>
+                                </tag>
+                            </tags>
+                        </trigger>
+                    </triggers>
+                </item>
+                <item>
+                    <uuid>a1b2c3d4e5f64a7b89d0e1f2a3b4c5d6</uuid>
+                    <name>WSO2 ESB: Total Service Count</name>
+                    <type>DEPENDENT</type>
+                    <key>wso2.esb.services.count</key>
+                    <delay>0</delay>
+                    <history>7d</history>
+                    <description>Total number of services discovered on the ESB.</description>
+                    <preprocessing>
+                        <step>
+                            <type>JSONPATH</type>
+                            <parameters>
+                                <parameter>$.length()</parameter>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <master_item>
+                        <key>wso2.esb.services.discovery.json</key>
+                    </master_item>
+                    <tags>
+                        <tag>
+                            <tag>component</tag>
+                            <value>wso2-esb</value>
+                        </tag>
+                    </tags>
+                    <triggers>
+                        <trigger>
+                            <uuid>e2f3a4b5c6d74e8f89c0d1e2f3a4b5c6</uuid>
+                            <expression>last(/WSO2 ESB Service Monitoring/wso2.esb.services.count)&gt;last(/WSO2 ESB Service Monitoring/wso2.esb.services.count,#2)</expression>
+                            <recovery_mode>NONE</recovery_mode>
+                            <name>WSO2 ESB: New service(s) added</name>
+                            <priority>INFO</priority>
+                            <description>Service count increased on the ESB.
+
+Service count: {ITEM.VALUE:/WSO2 ESB Service Monitoring/wso2.esb.services.count,#2} -&gt; {ITEM.VALUE:/WSO2 ESB Service Monitoring/wso2.esb.services.count}
+
+Previous service list:
+{ITEM.VALUE:/WSO2 ESB Service Monitoring/wso2.esb.services.list.sorted,#2}
+
+Current service list:
+{ITEM.VALUE:/WSO2 ESB Service Monitoring/wso2.esb.services.list.sorted}
+
+Compare both lists to identify the new service(s).</description>
+                            <manual_close>YES</manual_close>
+                            <tags>
+                                <tag>
+                                    <tag>action</tag>
+                                    <value>added</value>
+                                </tag>
+                                <tag>
+                                    <tag>component</tag>
+                                    <value>wso2-esb</value>
+                                </tag>
+                                <tag>
+                                    <tag>type</tag>
+                                    <value>inventory</value>
+                                </tag>
+                            </tags>
+                        </trigger>
+                        <trigger>
+                            <uuid>f2a3b4c5d6e74f8a89b0c1d2e3f4a5b6</uuid>
+                            <expression>last(/WSO2 ESB Service Monitoring/wso2.esb.services.count)&lt;last(/WSO2 ESB Service Monitoring/wso2.esb.services.count,#2)</expression>
+                            <recovery_mode>NONE</recovery_mode>
+                            <name>WSO2 ESB: Service(s) removed</name>
+                            <priority>WARNING</priority>
+                            <description>Service count decreased on the ESB.
+
+Service count: {ITEM.VALUE:/WSO2 ESB Service Monitoring/wso2.esb.services.count,#2} -&gt; {ITEM.VALUE:/WSO2 ESB Service Monitoring/wso2.esb.services.count}
+
+Previous service list:
+{ITEM.VALUE:/WSO2 ESB Service Monitoring/wso2.esb.services.list.sorted,#2}
+
+Current service list:
+{ITEM.VALUE:/WSO2 ESB Service Monitoring/wso2.esb.services.list.sorted}
+
+Compare both lists to identify which service(s) were removed and review the ESB configuration.</description>
+                            <manual_close>YES</manual_close>
+                            <tags>
+                                <tag>
+                                    <tag>action</tag>
+                                    <value>removed</value>
+                                </tag>
+                                <tag>
+                                    <tag>component</tag>
+                                    <value>wso2-esb</value>
+                                </tag>
+                                <tag>
+                                    <tag>type</tag>
+                                    <value>inventory</value>
+                                </tag>
+                            </tags>
+                        </trigger>
+                    </triggers>
+                </item>
+                <item>
+                    <uuid>b9c8d7e6f5a44b3c92d1e0f9a8b7c6d5</uuid>
+                    <name>WSO2 ESB: Services Delta (Added/Removed)</name>
+                    <type>DEPENDENT</type>
+                    <key>wso2.esb.services.delta</key>
+                    <delay>0</delay>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                    <description>Difference between the current and previous service list. Returns JSON listing added and removed services.</description>
+                    <preprocessing>
+                        <step>
+                            <type>JAVASCRIPT</type>
+                            <parameters>
+                                <parameter>// Calculate difference between current and previous service lists
+// Returns JSON with added and removed services
+
+// Current list (comma separated)
+var current = value;
+
+// Try to get previous value from history - if not available, return empty
+try {
+    // For first run, there's no history
+    var result = {
+        added: [],
+        removed: [],
+        status: &quot;first_run&quot;
+    };
+    return JSON.stringify(result);
+} catch (error) {
+    var result = {
+        added: [],
+        removed: [],
+        status: &quot;error&quot;,
+        error: error.toString()
+    };
+    return JSON.stringify(result);
+}</parameter>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <master_item>
+                        <key>wso2.esb.services.list.sorted</key>
+                    </master_item>
+                    <tags>
+                        <tag>
+                            <tag>component</tag>
+                            <value>wso2-esb</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>cafae2282b864dc4adea6f8b6ce3ac63</uuid>
+                    <name>WSO2 ESB: Service Discovery JSON</name>
+                    <type>SCRIPT</type>
+                    <key>wso2.esb.services.discovery.json</key>
+                    <delay>5m</delay>
+                    <history>7d</history>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                    <params>var url = 'https://{$WSO2.HOST}:{$WSO2.PORT}/services/ServiceAdmin';
+var username = '{$WSO2.SOAP.USERNAME}';
+var password = '{$WSO2.SOAP.PASSWORD}';
+
+var services = [];
+var request = new HttpRequest();
+request.addHeader('Content-Type: text/xml; charset=utf-8');
+request.addHeader('SOAPAction: urn:listServices');
+var auth = btoa(username + ':' + password);
+request.addHeader('Authorization: Basic ' + auth);
+
+try {
+    var envelope = '&lt;?xml version=&quot;1.0&quot;?&gt;&lt;soapenv:Envelope xmlns:soapenv=&quot;http://schemas.xmlsoap.org/soap/envelope/&quot; xmlns:xsd=&quot;http://org.apache.axis2/xsd&quot;&gt;&lt;soapenv:Body&gt;&lt;xsd:listServices&gt;&lt;xsd:pageNumber&gt;0&lt;/xsd:pageNumber&gt;&lt;/xsd:listServices&gt;&lt;/soapenv:Body&gt;&lt;/soapenv:Envelope&gt;';
+    var response = request.post(url, envelope);
+    var statusCode = request.getStatus();
+
+    if (statusCode !== 200) {
+        return JSON.stringify([{'ERROR': 'HTTP Error ' + statusCode}]);
+    }
+
+    if (response.indexOf('faultstring') !== -1) {
+        var faultMatch = response.match(/faultstring&gt;([^&lt;]+)&lt;/);
+        var faultMsg = faultMatch ? faultMatch[1] : 'Unknown SOAP Fault';
+        return JSON.stringify([{'ERROR': 'SOAP Fault: ' + faultMsg}]);
+    }
+
+    var pagesMatch = response.match(/numberOfPages&gt;(\d+)&lt;/);
+    var totalPages = pagesMatch ? parseInt(pagesMatch[1]) : 1;
+
+    for (var page = 0; page &lt; totalPages; page++) {
+        if (page &gt; 0) {
+            envelope = '&lt;?xml version=&quot;1.0&quot;?&gt;&lt;soapenv:Envelope xmlns:soapenv=&quot;http://schemas.xmlsoap.org/soap/envelope/&quot; xmlns:xsd=&quot;http://org.apache.axis2/xsd&quot;&gt;&lt;soapenv:Body&gt;&lt;xsd:listServices&gt;&lt;xsd:pageNumber&gt;' + page + '&lt;/xsd:pageNumber&gt;&lt;/xsd:listServices&gt;&lt;/soapenv:Body&gt;&lt;/soapenv:Envelope&gt;';
+            response = request.post(url, envelope);
+        }
+
+        // Split by services tag - namespace independent
+        var parts = response.split(':services');
+
+        for (var s = 1; s &lt; parts.length; s++) {
+            var block = parts[s];
+
+            var nameMatch = block.match(/:name&gt;([^&lt;]+)&lt;/);
+            var typeMatch = block.match(/:serviceType&gt;([^&lt;]+)&lt;/);
+            var wsdlMatch = block.match(/:wsdlURLs&gt;([^&lt;]+)&lt;/);
+
+            if (nameMatch &amp;&amp; typeMatch) {
+                var serviceName = nameMatch[1];
+                var serviceType = typeMatch[1];
+                var wsdlUrl = wsdlMatch ? wsdlMatch[1] : '';
+
+                var exists = false;
+                for (var j = 0; j &lt; services.length; j++) {
+                    if (services[j]['SERVICE_NAME'] === serviceName) {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if (!exists) {
+                    services.push({'SERVICE_NAME': serviceName, 'SERVICE_TYPE': serviceType, 'WSDL_URL': wsdlUrl});
+                }
+            }
+        }
+    }
+
+    if (services.length === 0) {
+        return JSON.stringify([{'ERROR': 'No services found', 'RESPONSE': response.substring(0, 200)}]);
+    }
+
+    return JSON.stringify(services);
+
+} catch (error) {
+    return JSON.stringify([{'ERROR': error.toString()}]);
+}</params>
+                    <description>Service discovery via SOAP. Iterates through every page returned by listServices and outputs JSON containing service name, type and WSDL URL.</description>
+                    <timeout>60s</timeout>
+                    <tags>
+                        <tag>
+                            <tag>component</tag>
+                            <value>wso2-esb</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>d4e5f6a7b8c94d0e8f2a3b4c5d6e7f8a</uuid>
+                    <name>WSO2 ESB: Inactive Services List</name>
+                    <type>SCRIPT</type>
+                    <key>wso2.esb.services.inactive.list</key>
+                    <delay>5m</delay>
+                    <history>30d</history>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                    <params>var url = 'https://{$WSO2.HOST}:{$WSO2.PORT}/services/ServiceAdmin';
+var username = '{$WSO2.SOAP.USERNAME}';
+var password = '{$WSO2.SOAP.PASSWORD}';
+
+var inactiveServices = [];
+var request = new HttpRequest();
+request.addHeader('Content-Type: text/xml; charset=utf-8');
+request.addHeader('SOAPAction: urn:listServices');
+var auth = btoa(username + ':' + password);
+request.addHeader('Authorization: Basic ' + auth);
+
+try {
+    var envelope = '&lt;?xml version=&quot;1.0&quot;?&gt;&lt;soapenv:Envelope xmlns:soapenv=&quot;http://schemas.xmlsoap.org/soap/envelope/&quot; xmlns:xsd=&quot;http://org.apache.axis2/xsd&quot;&gt;&lt;soapenv:Body&gt;&lt;xsd:listServices&gt;&lt;xsd:pageNumber&gt;0&lt;/xsd:pageNumber&gt;&lt;/xsd:listServices&gt;&lt;/soapenv:Body&gt;&lt;/soapenv:Envelope&gt;';
+    var response = request.post(url, envelope);
+    var statusCode = request.getStatus();
+
+    if (statusCode !== 200) {
+        return 'Error: HTTP ' + statusCode;
+    }
+
+    if (response.indexOf('faultstring') !== -1) {
+        var faultMatch = response.match(/faultstring&gt;([^&lt;]+)&lt;/);
+        var faultMsg = faultMatch ? faultMatch[1] : 'SOAP Fault';
+        return 'Error: ' + faultMsg;
+    }
+
+    var pagesMatch = response.match(/numberOfPages&gt;(\d+)&lt;/);
+    var totalPages = pagesMatch ? parseInt(pagesMatch[1]) : 1;
+
+    for (var page = 0; page &lt; totalPages; page++) {
+        if (page &gt; 0) {
+            envelope = '&lt;?xml version=&quot;1.0&quot;?&gt;&lt;soapenv:Envelope xmlns:soapenv=&quot;http://schemas.xmlsoap.org/soap/envelope/&quot; xmlns:xsd=&quot;http://org.apache.axis2/xsd&quot;&gt;&lt;soapenv:Body&gt;&lt;xsd:listServices&gt;&lt;xsd:pageNumber&gt;' + page + '&lt;/xsd:pageNumber&gt;&lt;/xsd:listServices&gt;&lt;/soapenv:Body&gt;&lt;/soapenv:Envelope&gt;';
+            response = request.post(url, envelope);
+        }
+
+        var parts = response.split(':services');
+
+        for (var s = 1; s &lt; parts.length; s++) {
+            var block = parts[s];
+
+            var nameMatch = block.match(/:name&gt;([^&lt;]+)&lt;/);
+            var activeMatch = block.match(/:active&gt;([^&lt;]+)&lt;/);
+
+            if (nameMatch &amp;&amp; activeMatch) {
+                var serviceName = nameMatch[1];
+                var isActive = activeMatch[1];
+
+                if (isActive === 'false') {
+                    var exists = false;
+                    for (var j = 0; j &lt; inactiveServices.length; j++) {
+                        if (inactiveServices[j] === serviceName) {
+                            exists = true;
+                            break;
+                        }
+                    }
+
+                    if (!exists) {
+                        inactiveServices.push(serviceName);
+                    }
+                }
+            }
+        }
+    }
+
+    if (inactiveServices.length &gt; 0) {
+        return inactiveServices.join(', ');
+    } else {
+        return 'All services active';
+    }
+
+} catch (error) {
+    return 'Error: ' + error.toString();
+}</params>
+                    <description>Comma-separated list of services where active=false. Returns "All services active" when none are inactive.</description>
+                    <timeout>60s</timeout>
+                    <tags>
+                        <tag>
+                            <tag>component</tag>
+                            <value>wso2-esb</value>
+                        </tag>
+                    </tags>
+                    <triggers>
+                        <trigger>
+                            <uuid>a5b6c7d8e9f04a1b8c3d4e5f6a7b8c9d</uuid>
+                            <expression>find(/WSO2 ESB Service Monitoring/wso2.esb.services.inactive.list,,&quot;regexp&quot;,&quot;^(?!All services active)&quot;)=1</expression>
+                            <name>WSO2 ESB: Inactive services detected ({ITEM.LASTVALUE})</name>
+                            <priority>WARNING</priority>
+                            <description>The following services are reported as inactive:
+{ITEM.LASTVALUE}
+
+Review the service status in the WSO2 ESB management console.</description>
+                            <manual_close>YES</manual_close>
+                            <tags>
+                                <tag>
+                                    <tag>component</tag>
+                                    <value>wso2-esb</value>
+                                </tag>
+                                <tag>
+                                    <tag>type</tag>
+                                    <value>availability</value>
+                                </tag>
+                            </tags>
+                        </trigger>
+                    </triggers>
+                </item>
+                <item>
+                    <uuid>c3d4e5f6a7b84c9d8e1f2a3b4c5d6e7f</uuid>
+                    <name>WSO2 ESB: Service List Sorted</name>
+                    <type>DEPENDENT</type>
+                    <key>wso2.esb.services.list.sorted</key>
+                    <delay>0</delay>
+                    <history>30d</history>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                    <description>Sorted, comma-separated list of discovered service names.</description>
+                    <preprocessing>
+                        <step>
+                            <type>JAVASCRIPT</type>
+                            <parameters>
+                                <parameter>var data = JSON.parse(value);
+var names = data.map(function(item) { return item.SERVICE_NAME; }).sort();
+return names.join(',');</parameter>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <master_item>
+                        <key>wso2.esb.services.discovery.json</key>
+                    </master_item>
+                    <tags>
+                        <tag>
+                            <tag>component</tag>
+                            <value>wso2-esb</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>bd087c3994f5408296a25d38e266cc53</uuid>
+                    <name>WSO2 ESB: Delta Metrics JSON</name>
+                    <type>SCRIPT</type>
+                    <key>wso2.esb.system.delta.json</key>
+                    <delay>3m</delay>
+                    <history>7d</history>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                    <params>var url = 'https://{$WSO2.HOST}:{$WSO2.PORT}/services/StatisticsAdmin';
+var username = '{$WSO2.SOAP.USERNAME}';
+var password = '{$WSO2.SOAP.PASSWORD}';
+
+try {
+    var request = new HttpRequest();
+    request.addHeader('Content-Type: text/xml; charset=utf-8');
+    request.addHeader('SOAPAction: urn:getSystemStatistics');
+    var auth = btoa(username + ':' + password);
+    request.addHeader('Authorization: Basic ' + auth);
+
+    var envelope = '&lt;?xml version=&quot;1.0&quot;?&gt;&lt;soapenv:Envelope xmlns:soapenv=&quot;http://schemas.xmlsoap.org/soap/envelope/&quot; xmlns:xsd=&quot;http://org.apache.axis2/xsd&quot;&gt;&lt;soapenv:Body&gt;&lt;xsd:getSystemStatistics/&gt;&lt;/soapenv:Body&gt;&lt;/soapenv:Envelope&gt;';
+
+    var response = request.post(url, envelope);
+
+    if (request.getStatus() !== 200) {
+        throw 'HTTP Error ' + request.getStatus();
+    }
+
+    var returnBlock = response.split(':return')[1];
+    if (!returnBlock) {
+        throw 'No return block found in XML response';
+    }
+
+    var extractField = function(xml, fieldName) {
+        var pattern = ':' + fieldName + '&gt;([^&lt;]+)&lt;';
+        var match = xml.match(new RegExp(pattern));
+        return match ? match[1] : null;
+    };
+
+    var totalFaults = extractField(returnBlock, 'totalFaultCount');
+    var totalRequests = extractField(returnBlock, 'totalRequestCount');
+    var totalResponses = extractField(returnBlock, 'totalResponseCount');
+
+    var currentTime = Math.floor(Date.now() / 1000);
+
+    var stats = {
+        totalRequestCount: totalRequests ? Math.floor(Number(totalRequests)) : 0,
+        totalFaultCount: totalFaults ? Math.floor(Number(totalFaults)) : 0,
+        totalResponseCount: totalResponses ? Math.floor(Number(totalResponses)) : 0,
+        timestamp: currentTime
+    };
+
+    return JSON.stringify(stats);
+
+} catch (error) {
+    return JSON.stringify({
+        totalRequestCount: 0,
+        totalFaultCount: 0,
+        totalResponseCount: 0,
+        timestamp: 0,
+        error: error.toString()
+    });
+}</params>
+                    <description>Master item that performs a single SOAP call to StatisticsAdmin and returns JSON with totalRequestCount, totalFaultCount, totalResponseCount and timestamp. Dependent items derive deltas by comparing the current value to the previous one.</description>
+                    <timeout>60s</timeout>
+                    <tags>
+                        <tag>
+                            <tag>component</tag>
+                            <value>wso2-esb</value>
+                        </tag>
+                        <tag>
+                            <tag>type</tag>
+                            <value>delta-calculator</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>d97ea500847d46528969f96e52d6f56c</uuid>
+                    <name>WSO2 ESB: Error Rate %</name>
+                    <type>CALCULATED</type>
+                    <key>wso2.esb.system.errorrate.percent</key>
+                    <delay>3m</delay>
+                    <history>7d</history>
+                    <value_type>FLOAT</value_type>
+                    <units>%</units>
+                    <params>(last(//wso2.esb.system.faultcount.raw) / (last(//wso2.esb.system.requestcount.raw) + 0.001)) * 100</params>
+                    <description>Total error rate: (totalFaultCount / totalRequestCount) * 100. Computed from the cumulative system counters. The 0.001 in the denominator avoids division by zero on a fresh server.</description>
+                    <tags>
+                        <tag>
+                            <tag>component</tag>
+                            <value>wso2-esb</value>
+                        </tag>
+                        <tag>
+                            <tag>grafana</tag>
+                            <value>ready</value>
+                        </tag>
+                        <tag>
+                            <tag>type</tag>
+                            <value>performance</value>
+                        </tag>
+                    </tags>
+                    <triggers>
+                        <trigger>
+                            <uuid>6eb1150396234ce6a24072bfc4825f79</uuid>
+                            <expression>min(/WSO2 ESB Service Monitoring/wso2.esb.system.errorrate.percent,15m)&gt;5</expression>
+                            <recovery_mode>RECOVERY_EXPRESSION</recovery_mode>
+                            <recovery_expression>max(/WSO2 ESB Service Monitoring/wso2.esb.system.errorrate.percent,15m)&lt;=4</recovery_expression>
+                            <name>WSO2 ESB: High error rate ({ITEM.LASTVALUE}%)</name>
+                            <priority>WARNING</priority>
+                            <description>Error rate on the WSO2 ESB is above the configured threshold.
+
+Error rate: {ITEM.LASTVALUE}%
+Total faults: {ITEM.LASTVALUE:/WSO2 ESB Service Monitoring/wso2.esb.system.faultcount.raw}
+Total requests: {ITEM.LASTVALUE:/WSO2 ESB Service Monitoring/wso2.esb.system.requestcount.raw}
+
+Inspect service logs and the per-service "Service [SERVICE_NAME]: Fault Delta" items to identify which service is generating new faults.</description>
+                            <manual_close>YES</manual_close>
+                            <tags>
+                                <tag>
+                                    <tag>component</tag>
+                                    <value>wso2-esb</value>
+                                </tag>
+                                <tag>
+                                    <tag>metric</tag>
+                                    <value>error_rate</value>
+                                </tag>
+                            </tags>
+                        </trigger>
+                    </triggers>
+                </item>
+                <item>
+                    <uuid>bbb882d9f70e448dbc737c08949607ab</uuid>
+                    <name>WSO2 ESB: Total Fault Count (raw)</name>
+                    <type>DEPENDENT</type>
+                    <key>wso2.esb.system.faultcount.raw</key>
+                    <delay>0</delay>
+                    <history>7d</history>
+                    <description>Cumulative total fault count extracted from the system statistics JSON. Used as a base for delta calculations.</description>
+                    <preprocessing>
+                        <step>
+                            <type>JSONPATH</type>
+                            <parameters>
+                                <parameter>$.totalFaultCount</parameter>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <master_item>
+                        <key>wso2.esb.system.stats.json</key>
+                    </master_item>
+                    <tags>
+                        <tag>
+                            <tag>component</tag>
+                            <value>wso2-esb</value>
+                        </tag>
+                        <tag>
+                            <tag>type</tag>
+                            <value>counter</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>d8c02d0b7629470cb34aa80bc399be4d</uuid>
+                    <name>WSO2 ESB: Fault Delta</name>
+                    <type>DEPENDENT</type>
+                    <key>wso2.esb.system.faults.delta</key>
+                    <delay>0</delay>
+                    <history>7d</history>
+                    <units>faults</units>
+                    <description>Delta of the total fault counter between consecutive polls.</description>
+                    <preprocessing>
+                        <step>
+                            <type>JSONPATH</type>
+                            <parameters>
+                                <parameter>$.totalFaultCount</parameter>
+                            </parameters>
+                        </step>
+                        <step>
+                            <type>SIMPLE_CHANGE</type>
+                            <parameters>
+                                <parameter/>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <master_item>
+                        <key>wso2.esb.system.delta.json</key>
+                    </master_item>
+                    <tags>
+                        <tag>
+                            <tag>component</tag>
+                            <value>wso2-esb</value>
+                        </tag>
+                        <tag>
+                            <tag>grafana</tag>
+                            <value>ready</value>
+                        </tag>
+                        <tag>
+                            <tag>type</tag>
+                            <value>delta</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>e54c7a0064f7483eac004120b1874fd3</uuid>
+                    <name>WSO2 ESB: Total Request Count (raw)</name>
+                    <type>DEPENDENT</type>
+                    <key>wso2.esb.system.requestcount.raw</key>
+                    <delay>0</delay>
+                    <history>7d</history>
+                    <description>Cumulative total request count extracted from the system statistics JSON. Used as a base for delta calculations.</description>
+                    <preprocessing>
+                        <step>
+                            <type>JSONPATH</type>
+                            <parameters>
+                                <parameter>$.totalRequestCount</parameter>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <master_item>
+                        <key>wso2.esb.system.stats.json</key>
+                    </master_item>
+                    <tags>
+                        <tag>
+                            <tag>component</tag>
+                            <value>wso2-esb</value>
+                        </tag>
+                        <tag>
+                            <tag>type</tag>
+                            <value>counter</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>18a7dcf263e843ccb00a3a373449606c</uuid>
+                    <name>WSO2 ESB: Request Delta</name>
+                    <type>DEPENDENT</type>
+                    <key>wso2.esb.system.requests.delta</key>
+                    <delay>0</delay>
+                    <history>7d</history>
+                    <units>requests</units>
+                    <description>Delta of the total request counter between consecutive polls.</description>
+                    <preprocessing>
+                        <step>
+                            <type>JSONPATH</type>
+                            <parameters>
+                                <parameter>$.totalRequestCount</parameter>
+                            </parameters>
+                        </step>
+                        <step>
+                            <type>SIMPLE_CHANGE</type>
+                            <parameters>
+                                <parameter/>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <master_item>
+                        <key>wso2.esb.system.delta.json</key>
+                    </master_item>
+                    <tags>
+                        <tag>
+                            <tag>component</tag>
+                            <value>wso2-esb</value>
+                        </tag>
+                        <tag>
+                            <tag>grafana</tag>
+                            <value>ready</value>
+                        </tag>
+                        <tag>
+                            <tag>type</tag>
+                            <value>delta</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>041c151415e742c790c780f190942784</uuid>
+                    <name>WSO2 ESB: Total Response Count (raw)</name>
+                    <type>DEPENDENT</type>
+                    <key>wso2.esb.system.responsecount.raw</key>
+                    <delay>0</delay>
+                    <history>7d</history>
+                    <description>Cumulative total response count extracted from the system statistics JSON. Used as a base for delta calculations.</description>
+                    <preprocessing>
+                        <step>
+                            <type>JSONPATH</type>
+                            <parameters>
+                                <parameter>$.totalResponseCount</parameter>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <master_item>
+                        <key>wso2.esb.system.stats.json</key>
+                    </master_item>
+                    <tags>
+                        <tag>
+                            <tag>component</tag>
+                            <value>wso2-esb</value>
+                        </tag>
+                        <tag>
+                            <tag>type</tag>
+                            <value>counter</value>
+                        </tag>
+                    </tags>
+                </item>
+                <item>
+                    <uuid>982597116b6b4fc7a92cfe7abcbe4589</uuid>
+                    <name>WSO2 ESB: System Statistics JSON</name>
+                    <type>SCRIPT</type>
+                    <key>wso2.esb.system.stats.json</key>
+                    <delay>3m</delay>
+                    <history>7d</history>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                    <params>var url = 'https://{$WSO2.HOST}:{$WSO2.PORT}/services/StatisticsAdmin';
+var username = '{$WSO2.SOAP.USERNAME}';
+var password = '{$WSO2.SOAP.PASSWORD}';
+
+try {
+    var request = new HttpRequest();
+    request.addHeader('Content-Type: text/xml; charset=utf-8');
+    request.addHeader('SOAPAction: urn:getSystemStatistics');
+    var auth = btoa(username + ':' + password);
+    request.addHeader('Authorization: Basic ' + auth);
+
+    var envelope = '&lt;?xml version=&quot;1.0&quot;?&gt;&lt;soapenv:Envelope xmlns:soapenv=&quot;http://schemas.xmlsoap.org/soap/envelope/&quot; xmlns:xsd=&quot;http://org.apache.axis2/xsd&quot;&gt;&lt;soapenv:Body&gt;&lt;xsd:getSystemStatistics/&gt;&lt;/soapenv:Body&gt;&lt;/soapenv:Envelope&gt;';
+
+    var response = request.post(url, envelope);
+
+    if (request.getStatus() !== 200) {
+        throw 'HTTP Error ' + request.getStatus();
+    }
+
+    var returnBlock = response.split(':return')[1];
+    if (!returnBlock) {
+        throw 'No return block found in XML response';
+    }
+
+    var extractField = function(xml, fieldName) {
+        var pattern = ':' + fieldName + '&gt;([^&lt;]+)&lt;';
+        var match = xml.match(new RegExp(pattern));
+        return match ? match[1] : null;
+    };
+
+    var extractNestedValue = function(xml, fieldName) {
+        var pattern = ':' + fieldName + '[^&gt;]*&gt;[\\s\\S]*?:value&gt;([^&lt;]+)&lt;';
+        var match = xml.match(new RegExp(pattern));
+        return match ? match[1] : null;
+    };
+
+    var serverName = extractField(returnBlock, 'serverName');
+    var totalFaults = extractField(returnBlock, 'totalFaultCount');
+    var totalRequests = extractField(returnBlock, 'totalRequestCount');
+    var totalResponses = extractField(returnBlock, 'totalResponseCount');
+    var avgResp = extractField(returnBlock, 'avgResponseTime');
+    var minResp = extractField(returnBlock, 'minResponseTime');
+    var maxResp = extractField(returnBlock, 'maxResponseTime');
+    var startTime = extractField(returnBlock, 'serverStartTime');
+    var upTime = extractField(returnBlock, 'systemUpTime');
+
+    var totalMem = extractNestedValue(returnBlock, 'totalMemory');
+    var usedMem = extractNestedValue(returnBlock, 'usedMemory');
+
+    var stats = {
+        serverName: serverName || 'Unknown',
+        totalFaultCount: totalFaults ? Math.floor(Number(totalFaults)) : 0,
+        totalRequestCount: totalRequests ? Math.floor(Number(totalRequests)) : 0,
+        totalResponseCount: totalResponses ? Math.floor(Number(totalResponses)) : 0,
+        avgResponseTime: avgResp ? Math.round(Number(avgResp) * 100) / 100 : 0,
+        minResponseTime: minResp ? Math.round(Number(minResp) * 100) / 100 : 0,
+        maxResponseTime: maxResp ? Math.round(Number(maxResp) * 100) / 100 : 0,
+        totalMemory: totalMem ? Math.round(Number(totalMem) * 100) / 100 : 0,
+        usedMemory: usedMem ? Math.round(Number(usedMem) * 100) / 100 : 0,
+        serverStartTime: startTime || '',
+        systemUpTime: upTime || ''
+    };
+
+    return JSON.stringify(stats);
+
+} catch (error) {
+    return JSON.stringify({error: error.toString()});
+}</params>
+                    <description>Single JSON item containing all WSO2 system statistics. Includes serverName, totalFaultCount, totalRequestCount, totalResponseCount, avgResponseTime, minResponseTime, maxResponseTime, totalMemory, usedMemory, serverStartTime and systemUpTime. Acts as the master item for the per-counter dependent items.</description>
+                    <timeout>60s</timeout>
+                    <tags>
+                        <tag>
+                            <tag>component</tag>
+                            <value>wso2-esb</value>
+                        </tag>
+                        <tag>
+                            <tag>type</tag>
+                            <value>statistics</value>
+                        </tag>
+                    </tags>
+                    <triggers>
+                        <trigger>
+                            <uuid>850d5874f1ee47d6b8eb43192a2efa55</uuid>
+                            <expression>nodata(/WSO2 ESB Service Monitoring/wso2.esb.system.stats.json,5m)=1</expression>
+                            <recovery_mode>RECOVERY_EXPRESSION</recovery_mode>
+                            <recovery_expression>nodata(/WSO2 ESB Service Monitoring/wso2.esb.system.stats.json,5m)=0</recovery_expression>
+                            <name>WSO2 ESB: No data received from server (last 5 minutes)</name>
+                            <priority>WARNING</priority>
+                            <description>No data has been received from the WSO2 ESB server in the last 5 minutes.
+
+Possible causes:
+- The WSO2 ESB server is stopped or unreachable
+- Network connectivity issues
+- Invalid SOAP credentials
+- StatisticsAdmin service is not responding
+
+Checks:
+1. Server status: {HOST.NAME}
+2. Network connectivity to {$WSO2.HOST}:{$WSO2.PORT}
+3. Zabbix server log for communication errors
+
+Last value received: {ITEM.LASTVALUE}</description>
+                            <manual_close>YES</manual_close>
+                        </trigger>
+                    </triggers>
+                </item>
+                <item>
+                    <uuid>56821d924cc44d78ae6c1f1628cb943e</uuid>
+                    <name>WSO2 ESB: Time Delta</name>
+                    <type>DEPENDENT</type>
+                    <key>wso2.esb.system.time.delta</key>
+                    <delay>0</delay>
+                    <history>7d</history>
+                    <units>s</units>
+                    <description>Seconds elapsed between consecutive polls. Used to normalize rate calculations.</description>
+                    <preprocessing>
+                        <step>
+                            <type>JSONPATH</type>
+                            <parameters>
+                                <parameter>$.timestamp</parameter>
+                            </parameters>
+                        </step>
+                        <step>
+                            <type>SIMPLE_CHANGE</type>
+                            <parameters>
+                                <parameter/>
+                            </parameters>
+                        </step>
+                    </preprocessing>
+                    <master_item>
+                        <key>wso2.esb.system.delta.json</key>
+                    </master_item>
+                    <tags>
+                        <tag>
+                            <tag>component</tag>
+                            <value>wso2-esb</value>
+                        </tag>
+                        <tag>
+                            <tag>type</tag>
+                            <value>delta</value>
+                        </tag>
+                    </tags>
+                </item>
+            </items>
+            <discovery_rules>
+                <discovery_rule>
+                    <uuid>d243c436dd284fe894b1f17f34113806</uuid>
+                    <name>WSO2 ESB Service Discovery</name>
+                    <type>DEPENDENT</type>
+                    <key>wso2.esb.services.lld</key>
+                    <delay>0</delay>
+                    <lifetime>7d</lifetime>
+                    <description>Low-level discovery for every WSO2 ESB service, driven by the JSON output of the master discovery item.</description>
+                    <item_prototypes>
+                        <item_prototype>
+                            <uuid>b1c2d3e4f5a64b7c8d9e0f1a2b3c4d5e</uuid>
+                            <name>Service [{#SERVICE.NAME}]: Error Rate (%)</name>
+                            <type>SCRIPT</type>
+                            <key>wso2.esb.service.error.rate[{#SERVICE.NAME}]</key>
+                            <delay>5m</delay>
+                            <history>7d</history>
+                            <value_type>FLOAT</value_type>
+                            <units>%</units>
+                            <params>// Error Rate calculation with error handling
+var serviceName = '{#SERVICE.NAME}';
+
+try {
+    // Get faults and requests values
+    var faultsKey = 'wso2.esb.service.stat.faults[' + serviceName + ']';
+    var requestsKey = 'wso2.esb.service.stat.requests[' + serviceName + ']';
+
+    var faults = Zabbix.getItemValue(faultsKey);
+    var requests = Zabbix.getItemValue(requestsKey);
+
+    // Check if values are valid
+    if (faults === null || requests === null) {
+        Zabbix.log(4, 'Error Rate: No data available for ' + serviceName);
+        return 0;
+    }
+
+    // Convert to numbers
+    faults = parseFloat(faults);
+    requests = parseFloat(requests);
+
+    // Avoid division by zero
+    if (requests === 0) {
+        return 0;
+    }
+
+    // Calculate error rate
+    var errorRate = (faults / requests) * 100;
+
+    return errorRate;
+
+} catch (error) {
+    Zabbix.log(4, 'Error Rate calculation failed for ' + serviceName + ': ' + error);
+    return 0;
+}</params>
+                            <description>Per-service error rate: (faults / requests) * 100. Returns 0 when the underlying counters have no data.</description>
+                            <timeout>60s</timeout>
+                            <tags>
+                                <tag>
+                                    <tag>service</tag>
+                                    <value>{#SERVICE.NAME}</value>
+                                </tag>
+                                <tag>
+                                    <tag>type</tag>
+                                    <value>error_rate</value>
+                                </tag>
+                            </tags>
+                            <trigger_prototypes>
+                                <trigger_prototype>
+                                    <uuid>f5a6b7c8d9e04f1a8b2c3d4e5f6a7b8c</uuid>
+                                    <expression>min(/WSO2 ESB Service Monitoring/wso2.esb.service.error.rate[{#SERVICE.NAME}],15m)&gt;{$WSO2.ERROR.RATE.THRESHOLD}</expression>
+                                    <recovery_mode>RECOVERY_EXPRESSION</recovery_mode>
+                                    <recovery_expression>max(/WSO2 ESB Service Monitoring/wso2.esb.service.error.rate[{#SERVICE.NAME}],15m)&lt;={$WSO2.ERROR.RATE.THRESHOLD}*0.8</recovery_expression>
+                                    <name>Service [{#SERVICE.NAME}]: High error rate ({ITEM.LASTVALUE1}%)</name>
+                                    <priority>AVERAGE</priority>
+                                    <description>Error rate for service {#SERVICE.NAME} exceeded {$WSO2.ERROR.RATE.THRESHOLD}%.
+Current value: {ITEM.LASTVALUE1}%
+Inspect service logs for details.</description>
+                                    <manual_close>YES</manual_close>
+                                    <tags>
+                                        <tag>
+                                            <tag>metric</tag>
+                                            <value>error_rate</value>
+                                        </tag>
+                                        <tag>
+                                            <tag>service</tag>
+                                            <value>{#SERVICE.NAME}</value>
+                                        </tag>
+                                    </tags>
+                                </trigger_prototype>
+                            </trigger_prototypes>
+                        </item_prototype>
+                        <item_prototype>
+                            <uuid>57deb0233296486dbb6bfac23d69909f</uuid>
+                            <name>Service [{#SERVICE.NAME}]: Average Response Time</name>
+                            <type>DEPENDENT</type>
+                            <key>wso2.esb.service.stat.avgresponse[{#SERVICE.NAME}]</key>
+                            <delay>0</delay>
+                            <history>7d</history>
+                            <value_type>FLOAT</value_type>
+                            <units>s</units>
+                            <description>Average response time for service {#SERVICE.NAME}.</description>
+                            <preprocessing>
+                                <step>
+                                    <type>XMLPATH</type>
+                                    <parameters>
+                                        <parameter>//*[local-name()='avgResponseTime']/text()</parameter>
+                                    </parameters>
+                                </step>
+                                <step>
+                                    <type>MULTIPLIER</type>
+                                    <parameters>
+                                        <parameter>0.001</parameter>
+                                    </parameters>
+                                </step>
+                            </preprocessing>
+                            <master_item>
+                                <key>wso2.esb.service.stat.raw[{#SERVICE.NAME}]</key>
+                            </master_item>
+                            <tags>
+                                <tag>
+                                    <tag>service</tag>
+                                    <value>{#SERVICE.NAME}</value>
+                                </tag>
+                                <tag>
+                                    <tag>type</tag>
+                                    <value>{#SERVICE.TYPE}</value>
+                                </tag>
+                            </tags>
+                        </item_prototype>
+                        <item_prototype>
+                            <uuid>6a78c03a691b423584907f54c3e60a6e</uuid>
+                            <name>Service [{#SERVICE.NAME}]: Fault Delta</name>
+                            <type>DEPENDENT</type>
+                            <key>wso2.esb.service.stat.faults.delta[{#SERVICE.NAME}]</key>
+                            <delay>0</delay>
+                            <history>7d</history>
+                            <units>faults</units>
+                            <description>Per-poll fault delta for service {#SERVICE.NAME}. Identifies the source of new faults per polling interval.</description>
+                            <preprocessing>
+                                <step>
+                                    <type>SIMPLE_CHANGE</type>
+                                    <parameters>
+                                        <parameter/>
+                                    </parameters>
+                                </step>
+                            </preprocessing>
+                            <master_item>
+                                <key>wso2.esb.service.stat.faults[{#SERVICE.NAME}]</key>
+                            </master_item>
+                            <tags>
+                                <tag>
+                                    <tag>grafana</tag>
+                                    <value>ready</value>
+                                </tag>
+                                <tag>
+                                    <tag>service</tag>
+                                    <value>{#SERVICE.NAME}</value>
+                                </tag>
+                                <tag>
+                                    <tag>type</tag>
+                                    <value>delta</value>
+                                </tag>
+                            </tags>
+                        </item_prototype>
+                        <item_prototype>
+                            <uuid>64dfac08d8504581be006a88a9931d3e</uuid>
+                            <name>Service [{#SERVICE.NAME}]: Total Fault Count</name>
+                            <type>DEPENDENT</type>
+                            <key>wso2.esb.service.stat.faults[{#SERVICE.NAME}]</key>
+                            <delay>0</delay>
+                            <history>7d</history>
+                            <description>Total fault count for service {#SERVICE.NAME}.</description>
+                            <preprocessing>
+                                <step>
+                                    <type>XMLPATH</type>
+                                    <parameters>
+                                        <parameter>//*[local-name()='totalFaultCount']/text()</parameter>
+                                    </parameters>
+                                </step>
+                            </preprocessing>
+                            <master_item>
+                                <key>wso2.esb.service.stat.raw[{#SERVICE.NAME}]</key>
+                            </master_item>
+                            <tags>
+                                <tag>
+                                    <tag>service</tag>
+                                    <value>{#SERVICE.NAME}</value>
+                                </tag>
+                                <tag>
+                                    <tag>type</tag>
+                                    <value>{#SERVICE.TYPE}</value>
+                                </tag>
+                            </tags>
+                            <trigger_prototypes>
+                                <trigger_prototype>
+                                    <uuid>5b5a1e18ee024d1fbdce2cba7c601271</uuid>
+                                    <expression>(last(/WSO2 ESB Service Monitoring/wso2.esb.service.stat.faults[{#SERVICE.NAME}],#1)&lt;&gt;last(/WSO2 ESB Service Monitoring/wso2.esb.service.stat.faults[{#SERVICE.NAME}],#2)) and last(/WSO2 ESB Service Monitoring/wso2.esb.service.stat.faults[{#SERVICE.NAME}])&gt;0</expression>
+                                    <name>Service [{#SERVICE.NAME}]: Fault count changed</name>
+                                    <priority>INFO</priority>
+                                    <description>Fault count for service {#SERVICE.NAME} has changed.</description>
+                                </trigger_prototype>
+                            </trigger_prototypes>
+                        </item_prototype>
+                        <item_prototype>
+                            <uuid>5aef196b7f824851a486cbdfe99aa89d</uuid>
+                            <name>Service [{#SERVICE.NAME}]: Max Response Time</name>
+                            <type>DEPENDENT</type>
+                            <key>wso2.esb.service.stat.maxresponse[{#SERVICE.NAME}]</key>
+                            <delay>0</delay>
+                            <history>7d</history>
+                            <value_type>FLOAT</value_type>
+                            <units>s</units>
+                            <description>Maximum response time for service {#SERVICE.NAME}.</description>
+                            <preprocessing>
+                                <step>
+                                    <type>XMLPATH</type>
+                                    <parameters>
+                                        <parameter>//*[local-name()='maxResponseTime']/text()</parameter>
+                                    </parameters>
+                                </step>
+                                <step>
+                                    <type>MULTIPLIER</type>
+                                    <parameters>
+                                        <parameter>0.001</parameter>
+                                    </parameters>
+                                </step>
+                            </preprocessing>
+                            <master_item>
+                                <key>wso2.esb.service.stat.raw[{#SERVICE.NAME}]</key>
+                            </master_item>
+                            <tags>
+                                <tag>
+                                    <tag>service</tag>
+                                    <value>{#SERVICE.NAME}</value>
+                                </tag>
+                                <tag>
+                                    <tag>type</tag>
+                                    <value>{#SERVICE.TYPE}</value>
+                                </tag>
+                            </tags>
+                            <trigger_prototypes>
+                                <trigger_prototype>
+                                    <uuid>ff452b78aa014d8d8fec12c223fb2006</uuid>
+                                    <expression>last(/WSO2 ESB Service Monitoring/wso2.esb.service.stat.maxresponse[{#SERVICE.NAME}])&gt;{$WSO2.MAX.RESPONSE.TIME} and last(/WSO2 ESB Service Monitoring/wso2.esb.service.stat.maxresponse[{#SERVICE.NAME}],#2)&lt;{$WSO2.MAX.RESPONSE.TIME}</expression>
+                                    <recovery_mode>RECOVERY_EXPRESSION</recovery_mode>
+                                    <recovery_expression>last(/WSO2 ESB Service Monitoring/wso2.esb.service.stat.maxresponse[{#SERVICE.NAME}])&lt;={$WSO2.MAX.RESPONSE.TIME}</recovery_expression>
+                                    <name>Service [{#SERVICE.NAME}]: Max response time exceeded ({ITEM.LASTVALUE1}s)</name>
+                                    <priority>INFO</priority>
+                                    <description>Max response time for service {#SERVICE.NAME} crossed the {$WSO2.MAX.RESPONSE.TIME}s threshold.
+
+Current value: {ITEM.LASTVALUE1}s
+Previous value: {ITEM.LASTVALUE2}s
+
+Indicates a spike in response time.</description>
+                                    <manual_close>YES</manual_close>
+                                    <tags>
+                                        <tag>
+                                            <tag>metric</tag>
+                                            <value>response_time</value>
+                                        </tag>
+                                        <tag>
+                                            <tag>service</tag>
+                                            <value>{#SERVICE.NAME}</value>
+                                        </tag>
+                                    </tags>
+                                </trigger_prototype>
+                            </trigger_prototypes>
+                        </item_prototype>
+                        <item_prototype>
+                            <uuid>a20c3451fca74d429db9d0fb8b953273</uuid>
+                            <name>Service [{#SERVICE.NAME}]: Statistics Raw XML</name>
+                            <type>HTTP_AGENT</type>
+                            <key>wso2.esb.service.stat.raw[{#SERVICE.NAME}]</key>
+                            <delay>5m</delay>
+                            <history>1h</history>
+                            <trends>0</trends>
+                            <value_type>TEXT</value_type>
+                            <authtype>BASIC</authtype>
+                            <username>{$WSO2.SOAP.USERNAME}</username>
+                            <password>{$WSO2.SOAP.PASSWORD}</password>
+                            <description>Master item. Raw SOAP XML response from getServiceStatistics. A single HTTP request feeds every per-service metric.</description>
+                            <timeout>60s</timeout>
+                            <url>https://{$WSO2.HOST}:{$WSO2.PORT}/services/StatisticsAdmin</url>
+                            <posts>&lt;?xml version=&quot;1.0&quot;?&gt;&lt;soapenv:Envelope xmlns:soapenv=&quot;http://schemas.xmlsoap.org/soap/envelope/&quot; xmlns:xsd=&quot;http://org.apache.axis2/xsd&quot;&gt;&lt;soapenv:Body&gt;&lt;xsd:getServiceStatistics&gt;&lt;xsd:serviceName&gt;{#SERVICE.NAME}&lt;/xsd:serviceName&gt;&lt;/xsd:getServiceStatistics&gt;&lt;/soapenv:Body&gt;&lt;/soapenv:Envelope&gt;</posts>
+                            <headers>
+                                <header>
+                                    <name>Content-Type</name>
+                                    <value>text/xml; charset=utf-8</value>
+                                </header>
+                                <header>
+                                    <name>SOAPAction</name>
+                                    <value>urn:getServiceStatistics</value>
+                                </header>
+                            </headers>
+                            <request_method>POST</request_method>
+                            <tags>
+                                <tag>
+                                    <tag>service</tag>
+                                    <value>{#SERVICE.NAME}</value>
+                                </tag>
+                                <tag>
+                                    <tag>type</tag>
+                                    <value>{#SERVICE.TYPE}</value>
+                                </tag>
+                            </tags>
+                        </item_prototype>
+                        <item_prototype>
+                            <uuid>19edbeb5e1274d359601f6560e7e1e04</uuid>
+                            <name>Service [{#SERVICE.NAME}]: Total Request Count</name>
+                            <type>DEPENDENT</type>
+                            <key>wso2.esb.service.stat.requests[{#SERVICE.NAME}]</key>
+                            <delay>0</delay>
+                            <history>7d</history>
+                            <description>Total request count for service {#SERVICE.NAME}.</description>
+                            <preprocessing>
+                                <step>
+                                    <type>XMLPATH</type>
+                                    <parameters>
+                                        <parameter>//*[local-name()='totalRequestCount']/text()</parameter>
+                                    </parameters>
+                                </step>
+                            </preprocessing>
+                            <master_item>
+                                <key>wso2.esb.service.stat.raw[{#SERVICE.NAME}]</key>
+                            </master_item>
+                            <tags>
+                                <tag>
+                                    <tag>service</tag>
+                                    <value>{#SERVICE.NAME}</value>
+                                </tag>
+                                <tag>
+                                    <tag>type</tag>
+                                    <value>{#SERVICE.TYPE}</value>
+                                </tag>
+                            </tags>
+                        </item_prototype>
+                        <item_prototype>
+                            <uuid>2e1a4b4f4b7d4da1bb9f35a95e341db7</uuid>
+                            <name>Service [{#SERVICE.NAME}]: Total Response Count</name>
+                            <type>DEPENDENT</type>
+                            <key>wso2.esb.service.stat.responses[{#SERVICE.NAME}]</key>
+                            <delay>0</delay>
+                            <history>7d</history>
+                            <description>Total response count for service {#SERVICE.NAME}.</description>
+                            <preprocessing>
+                                <step>
+                                    <type>XMLPATH</type>
+                                    <parameters>
+                                        <parameter>//*[local-name()='totalResponseCount']/text()</parameter>
+                                    </parameters>
+                                </step>
+                            </preprocessing>
+                            <master_item>
+                                <key>wso2.esb.service.stat.raw[{#SERVICE.NAME}]</key>
+                            </master_item>
+                            <tags>
+                                <tag>
+                                    <tag>service</tag>
+                                    <value>{#SERVICE.NAME}</value>
+                                </tag>
+                                <tag>
+                                    <tag>type</tag>
+                                    <value>{#SERVICE.TYPE}</value>
+                                </tag>
+                            </tags>
+                        </item_prototype>
+                        <item_prototype>
+                            <uuid>8f3c7e9d2a1b4c5d8e7f8a9b0c1d2e3f</uuid>
+                            <name>Service [{#SERVICE.NAME}]: WSDL Availability</name>
+                            <type>HTTP_AGENT</type>
+                            <key>wso2.esb.service.wsdl.available[{#SERVICE.NAME}]</key>
+                            <delay>10m</delay>
+                            <history>7d</history>
+                            <description>WSDL reachability check for {#SERVICE.NAME}. 1 = available, 0 = unavailable.</description>
+                            <preprocessing>
+                                <step>
+                                    <type>JAVASCRIPT</type>
+                                    <parameters>
+                                        <parameter>return 1;</parameter>
+                                    </parameters>
+                                </step>
+                            </preprocessing>
+                            <timeout>60s</timeout>
+                            <url>{#WSDL.URL}</url>
+                            <retrieve_mode>HEADERS</retrieve_mode>
+                            <tags>
+                                <tag>
+                                    <tag>service</tag>
+                                    <value>{#SERVICE.NAME}</value>
+                                </tag>
+                                <tag>
+                                    <tag>type</tag>
+                                    <value>wsdl</value>
+                                </tag>
+                            </tags>
+                            <trigger_prototypes>
+                                <trigger_prototype>
+                                    <uuid>c7d8e9f0a1b24c3d8e5f6a7b8c9d0e1f</uuid>
+                                    <expression>last(/WSO2 ESB Service Monitoring/wso2.esb.service.wsdl.available[{#SERVICE.NAME}])=0</expression>
+                                    <name>Service [{#SERVICE.NAME}]: WSDL unavailable</name>
+                                    <priority>AVERAGE</priority>
+                                    <description>WSDL for service {#SERVICE.NAME} is not reachable at {#WSDL.URL}.</description>
+                                    <tags>
+                                        <tag>
+                                            <tag>component</tag>
+                                            <value>wsdl</value>
+                                        </tag>
+                                        <tag>
+                                            <tag>service</tag>
+                                            <value>{#SERVICE.NAME}</value>
+                                        </tag>
+                                    </tags>
+                                </trigger_prototype>
+                            </trigger_prototypes>
+                        </item_prototype>
+                    </item_prototypes>
+                    <trigger_prototypes>
+                        <trigger_prototype>
+                            <uuid>c769610f38d344bcb097d8b6d6815463</uuid>
+                            <expression>last(/WSO2 ESB Service Monitoring/wso2.esb.service.stat.maxresponse[{#SERVICE.NAME}])&gt;{$WSO2.MAX.RESPONSE.TIME} and avg(/WSO2 ESB Service Monitoring/wso2.esb.service.stat.avgresponse[{#SERVICE.NAME}],15m)&gt;avg(/WSO2 ESB Service Monitoring/wso2.esb.service.stat.avgresponse[{#SERVICE.NAME}],15m:now-15m)</expression>
+                            <recovery_mode>RECOVERY_EXPRESSION</recovery_mode>
+                            <recovery_expression>last(/WSO2 ESB Service Monitoring/wso2.esb.service.stat.maxresponse[{#SERVICE.NAME}])&lt;={$WSO2.MAX.RESPONSE.TIME} or avg(/WSO2 ESB Service Monitoring/wso2.esb.service.stat.avgresponse[{#SERVICE.NAME}],10m)&lt;=avg(/WSO2 ESB Service Monitoring/wso2.esb.service.stat.avgresponse[{#SERVICE.NAME}],10m:now-10m)</recovery_expression>
+                            <name>Service [{#SERVICE.NAME}]: Response time degradation (avg trending up)</name>
+                            <priority>INFO</priority>
+                            <description>Service {#SERVICE.NAME} shows sustained performance degradation.
+
+Max response time: {ITEM.LASTVALUE1}s (threshold: {$WSO2.MAX.RESPONSE.TIME}s)
+Average response time: rising over the last 15 minutes.
+
+Investigate the cause of the persistent degradation.</description>
+                            <manual_close>YES</manual_close>
+                            <tags>
+                                <tag>
+                                    <tag>metric</tag>
+                                    <value>response_time</value>
+                                </tag>
+                                <tag>
+                                    <tag>service</tag>
+                                    <value>{#SERVICE.NAME}</value>
+                                </tag>
+                                <tag>
+                                    <tag>trend</tag>
+                                    <value>degradation</value>
+                                </tag>
+                            </tags>
+                        </trigger_prototype>
+                    </trigger_prototypes>
+                    <master_item>
+                        <key>wso2.esb.services.discovery.json</key>
+                    </master_item>
+                    <lld_macro_paths>
+                        <lld_macro_path>
+                            <lld_macro>{#SERVICE.NAME}</lld_macro>
+                            <path>$.SERVICE_NAME</path>
+                        </lld_macro_path>
+                        <lld_macro_path>
+                            <lld_macro>{#SERVICE.TYPE}</lld_macro>
+                            <path>$.SERVICE_TYPE</path>
+                        </lld_macro_path>
+                        <lld_macro_path>
+                            <lld_macro>{#WSDL.URL}</lld_macro>
+                            <path>$.WSDL_URL</path>
+                        </lld_macro_path>
+                    </lld_macro_paths>
+                </discovery_rule>
+            </discovery_rules>
+            <macros>
+                <macro>
+                    <macro>{$WSO2.ERROR.RATE.THRESHOLD}</macro>
+                    <value>5</value>
+                    <description>Maximum error rate (%) before the high-error-rate trigger fires.</description>
+                </macro>
+                <macro>
+                    <macro>{$WSO2.HOST}</macro>
+                    <value>wso2.example.com</value>
+                    <description>Hostname or IP of the WSO2 ESB server.</description>
+                </macro>
+                <macro>
+                    <macro>{$WSO2.MAX.RESPONSE.TIME}</macro>
+                    <value>120</value>
+                    <description>Maximum allowed response time, in seconds (default: 2 minutes).</description>
+                </macro>
+                <macro>
+                    <macro>{$WSO2.PORT}</macro>
+                    <value>9443</value>
+                    <description>Port for the WSO2 ESB SOAP Admin API.</description>
+                </macro>
+                <macro>
+                    <macro>{$WSO2.SOAP.PASSWORD}</macro>
+                    <type>SECRET_TEXT</type>
+                    <description>Password for SOAP API Basic authentication.</description>
+                </macro>
+                <macro>
+                    <macro>{$WSO2.SOAP.USERNAME}</macro>
+                    <value>admin</value>
+                    <description>Username for SOAP API Basic authentication.</description>
+                </macro>
+                <macro>
+                    <macro>{$WSO2.SSL.CERT.EXPIRY.CRITICAL}</macro>
+                    <value>7</value>
+                    <description>SSL certificate expiry CRITICAL threshold, in days.</description>
+                </macro>
+                <macro>
+                    <macro>{$WSO2.SSL.CERT.EXPIRY.WARNING}</macro>
+                    <value>30</value>
+                    <description>SSL certificate expiry WARNING threshold, in days.</description>
+                </macro>
+                <macro>
+                    <macro>{$WSO2.SYSTEM.FAULT.INCREASE.THRESHOLD}</macro>
+                    <value>100</value>
+                    <description>System-wide fault increase threshold over a 15-minute window (WARNING trigger).</description>
+                </macro>
+                <macro>
+                    <macro>{$WSO2.SYSTEM.FAULT.RECOVERY.THRESHOLD}</macro>
+                    <value>50</value>
+                    <description>Recovery threshold for the system fault increase trigger.</description>
+                </macro>
+            </macros>
+        </template>
+    </templates>
+</zabbix_export>
