@@ -22,6 +22,31 @@ and system-wide request, response and fault counters, plus per-poll deltas.
 The template performs all data collection over HTTPS to the WSO2 management port
 (default `9443`), against the `ServiceAdmin` and `StatisticsAdmin` SOAP endpoints.
 
+## Screenshots
+
+> Captured from a demo Zabbix 6.2 deployment with a mock SOAP service exposing
+> the same contract as the WSO2 ESB Carbon admin endpoints.
+
+Latest data view, filtered to the demo host. Six services were auto-discovered
+and produce 69 items, including per-poll counters and deltas:
+
+![Latest data](docs/screenshots/01-latest-data.png)
+
+Item list under the host. Tags surface the per-service breakdown and item
+types (Dependent, HTTP agent, Script, Calculated):
+
+![Items list](docs/screenshots/02-items-list.png)
+
+Item prototypes defined by the discovery rule. Each row is created once per
+discovered service:
+
+![Item prototypes](docs/screenshots/03-item-prototypes.png)
+
+System-wide request delta over one hour. The initial rise corresponds to the
+discovery cycle bringing per-service items online:
+
+![Request delta graph](docs/screenshots/05-request-delta-graph.png)
+
 ## Requirements
 
 - Zabbix server / proxy 6.2 or newer
@@ -87,28 +112,37 @@ inactive services, and missing data from the ESB.
 ## Architecture
 
 ```mermaid
-flowchart LR
-    Z[Zabbix Server / Proxy]
-    subgraph WSO2[WSO2 ESB on port 9443]
-        SA[ServiceAdmin SOAP]
-        ST[StatisticsAdmin SOAP]
-    end
-    G[Grafana]
+sequenceDiagram
+    autonumber
+    participant Z as Zabbix Server / Proxy
+    participant SA as ServiceAdmin SOAP
+    participant ST as StatisticsAdmin SOAP
+    participant G as Grafana
 
-    Z -->|listServices| SA
-    Z -->|getSystemStatistics| ST
-    Z -->|getServiceStatistics per service| ST
-    SA -->|service list| Z
-    ST -->|counters and timings| Z
-    Z -.->|read API| G
+    Note over Z,SA: Discovery cycle — every 5 min
+    Z->>SA: listServices
+    SA-->>Z: service catalogue (XML)
+    Note right of Z: LLD spawns per-service items
+
+    Note over Z,ST: System metrics — every 3 min
+    Z->>ST: getSystemStatistics
+    ST-->>Z: totals, response times, memory
+
+    Note over Z,ST: Per-service metrics — every 5 min
+    Z->>ST: getServiceStatistics(name)
+    ST-->>Z: counters for that service
+
+    Note over Z,G: Optional
+    G->>Z: query items via Zabbix API
+    Z-->>G: time series for dashboards
 ```
 
 The Zabbix server polls two SOAP endpoints on the WSO2 management port:
 
 - **`ServiceAdmin`** returns the catalogue of deployed services and feeds Zabbix
   low-level discovery. New services are picked up on the next discovery cycle.
-- **`StatisticsAdmin`** returns system-wide and per-service counters, used to
-  build per-poll deltas and the aggregate error rate.
+- **`StatisticsAdmin`** returns system-wide and per-service counters. Successive
+  polls feed per-poll deltas and the aggregate error rate.
 
 Grafana is optional and reads from Zabbix through the standard Zabbix API.
 
